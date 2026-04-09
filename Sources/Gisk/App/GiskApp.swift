@@ -11,12 +11,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct GiskApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @AppStorage("appearanceMode") private var appearanceMode: String = AppearanceMode.system.rawValue
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .frame(minWidth: 900, minHeight: 600)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(
+                    (AppearanceMode(rawValue: appearanceMode) ?? .system).colorScheme
+                )
         }
         .windowStyle(.automatic)
         .defaultSize(width: 1200, height: 800)
@@ -27,6 +30,10 @@ struct GiskApp: App {
                 }
                 .keyboardShortcut("o")
             }
+        }
+
+        Settings {
+            SettingsView()
         }
     }
 
