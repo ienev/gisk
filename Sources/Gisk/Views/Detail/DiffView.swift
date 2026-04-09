@@ -73,7 +73,7 @@ struct UnifiedDiffContent: View {
     var body: some View {
         GeometryReader { geo in
             ScrollView([.horizontal, .vertical]) {
-                VStack(alignment: .leading, spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(file.hunks.enumerated()), id: \.offset) { index, hunk in
                         if index > 0 {
                             Rectangle()
@@ -101,7 +101,7 @@ struct SideBySideDiffContent: View {
     var body: some View {
         GeometryReader { geo in
             ScrollView(.vertical) {
-                VStack(alignment: .leading, spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(file.hunks.enumerated()), id: \.offset) { index, hunk in
                         if index > 0 {
                             Rectangle()
@@ -130,7 +130,7 @@ struct SideBySideHunkView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        LazyVStack(alignment: .leading, spacing: 0) {
             // Hunk header spanning full width
             Text(hunk.header)
                 .font(.system(size: 12, design: .monospaced))
@@ -240,7 +240,7 @@ struct HunkView: View {
     let hunk: Hunk
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        LazyVStack(alignment: .leading, spacing: 0) {
             Text(hunk.header)
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundStyle(Theme.hunkHeaderText)
