@@ -77,15 +77,6 @@ struct CommitDetailView: View {
                 }
             }
 
-            // Refs
-            if !commit.refs.isEmpty {
-                HStack(spacing: 4) {
-                    ForEach(commit.refs) { ref in
-                        RefBadge(ref: ref)
-                    }
-                }
-            }
-
             // Full body if present
             if !commit.body.isEmpty && commit.body != commit.subject {
                 Divider()

@@ -61,6 +61,14 @@ struct FileListView: View {
                 }
             }
             .listStyle(.plain)
+            .onChange(of: files.map(\.id)) { _, newIDs in
+                if let currentID = selectedFile?.id, newIDs.contains(currentID) {
+                    return
+                }
+                if let first = files.first {
+                    selectedFile = first
+                }
+            }
         }
     }
 

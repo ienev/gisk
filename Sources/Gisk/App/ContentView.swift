@@ -39,25 +39,42 @@ struct ContentView: View {
 
     @ViewBuilder
     var mainContent: some View {
-        VSplitView {
-            // Top: commit list
-            CommitListView(viewModel: viewModel)
-                .frame(minHeight: 200)
+        GeometryReader { geo in
+            let rightColumnWidth: CGFloat = 300
+            VSplitView {
+                // Top row: commit list + commit detail
+                HStack(spacing: 0) {
+                    CommitListView(viewModel: viewModel)
+                        .frame(maxWidth: .infinity)
 
-            // Bottom: detail + diff
-            HSplitView {
-                // Left: file list + commit detail
-                VStack(spacing: 0) {
+                    Divider()
+
                     if let commit = viewModel.selectedCommit {
-                        ScrollView {
+                        let isVirtual = commit.id == stagedChangesID || commit.id == unstagedChangesID
+                        if isVirtual {
                             CommitDetailView(commit: commit) { sha in
                                 Task { await viewModel.navigateToCommit(sha: sha) }
                             }
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(width: rightColumnWidth, alignment: .topLeading)
+                        } else {
+                            ScrollView {
+                                CommitDetailView(commit: commit) { sha in
+                                    Task { await viewModel.navigateToCommit(sha: sha) }
+                                }
+                            }
+                            .frame(width: rightColumnWidth)
                         }
-                        .frame(maxHeight: 200)
-
-                        Divider()
                     }
+                }
+                .frame(minHeight: 100, maxHeight: geo.size.height * 0.25)
+
+                // Bottom row: diff view + file list
+                HStack(spacing: 0) {
+                    DiffView(fileDiff: viewModel.selectedFileDiff)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    Divider()
 
                     if let diff = viewModel.diff {
                         FileListView(
@@ -69,15 +86,11 @@ struct ContentView: View {
                                 }
                             )
                         )
+                        .frame(width: rightColumnWidth)
                     }
                 }
-                .frame(minWidth: 200, idealWidth: 300, maxWidth: 500)
-
-                // Right: diff view
-                DiffView(fileDiff: viewModel.selectedFileDiff)
-                    .frame(minWidth: 300, maxHeight: .infinity)
+                .frame(minHeight: 250)
             }
-            .frame(minHeight: 250, idealHeight: 350)
         }
     }
 

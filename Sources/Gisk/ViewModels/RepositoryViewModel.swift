@@ -97,9 +97,12 @@ class RepositoryViewModel {
     @MainActor
     func selectCommit(_ commit: Commit) async {
         selectedCommit = commit
-        selectedFileDiff = nil
 
-        guard let git = git else { return }
+        guard let git = git else {
+            selectedFileDiff = nil
+            diff = nil
+            return
+        }
 
         do {
             let diffOutput: String
@@ -114,13 +117,12 @@ class RepositoryViewModel {
                 diffOutput = try await git.diff(commitSHA: commit.id, isMerge: isMerge, isRoot: isRoot)
             }
 
-            diff = GitDiffParser.parse(diffOutput)
-
-            if let firstFile = diff?.files.first {
-                selectedFileDiff = firstFile
-            }
+            let newDiff = GitDiffParser.parse(diffOutput)
+            diff = newDiff
+            selectedFileDiff = newDiff.files.first
         } catch {
             diff = nil
+            selectedFileDiff = nil
         }
     }
 
