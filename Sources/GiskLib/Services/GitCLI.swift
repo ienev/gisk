@@ -126,8 +126,8 @@ public actor GitCLI {
 
         process.waitUntilExit()
 
-        let output = String(data: outData, encoding: .utf8) ?? ""
-        let errorOutput = String(data: errData, encoding: .utf8) ?? ""
+        let output = decodeLenient(outData)
+        let errorOutput = decodeLenient(errData)
 
         if process.terminationStatus != 0 {
             throw GitError.commandFailed(
@@ -138,6 +138,15 @@ public actor GitCLI {
         }
 
         return output
+    }
+
+    private func decodeLenient(_ data: Data) -> String {
+        if let utf8 = String(data: data, encoding: .utf8) {
+            return utf8
+        }
+        return data.withUnsafeBytes { buf in
+            String(decoding: buf.bindMemory(to: UInt8.self), as: UTF8.self)
+        }
     }
 }
 
