@@ -65,24 +65,102 @@ struct DiffView: View {
     }
 }
 
+// MARK: - Flattened diff rows
+//
+// Each diff is flattened into a single list of rows (hunk headers + lines) so
+// that a single LazyVStack can virtualize the whole file. Nesting a LazyVStack
+// per hunk defeats laziness: the inner stack must lay out every line to report
+// its size, which builds one oversized view that AppKit clips on large files.
+
+private enum UnifiedRow: Identifiable {
+    case hunkHeader(index: Int, text: String)
+    case line(DiffLine)
+
+    var id: String {
+        switch self {
+        case .hunkHeader(let index, _): return "h\(index)"
+        case .line(let line): return "l\(line.id)"
+        }
+    }
+}
+
+private func unifiedRows(for file: FileDiff) -> [UnifiedRow] {
+    var rows: [UnifiedRow] = []
+    for (index, hunk) in file.hunks.enumerated() {
+        rows.append(.hunkHeader(index: index, text: hunk.header))
+        for line in hunk.lines {
+            rows.append(.line(line))
+        }
+    }
+    return rows
+}
+
+private enum SideBySideRow: Identifiable {
+    case hunkHeader(index: Int, text: String)
+    case pair(index: Int, pair: SideBySidePair)
+
+    var id: String {
+        switch self {
+        case .hunkHeader(let index, _): return "h\(index)"
+        case .pair(let index, _): return "p\(index)"
+        }
+    }
+}
+
+private func sideBySideRows(for file: FileDiff) -> [SideBySideRow] {
+    var rows: [SideBySideRow] = []
+    var pairIndex = 0
+    for (index, hunk) in file.hunks.enumerated() {
+        rows.append(.hunkHeader(index: index, text: hunk.header))
+        for pair in SideBySidePairer.pair(lines: hunk.lines) {
+            rows.append(.pair(index: pairIndex, pair: pair))
+            pairIndex += 1
+        }
+    }
+    return rows
+}
+
+private struct HunkHeaderRow: View {
+    let text: String
+    let showDivider: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if showDivider {
+                Rectangle()
+                    .fill(Color.primary.opacity(0.08))
+                    .frame(height: 1)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 2)
+            }
+            Text(text)
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(Theme.hunkHeaderText)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.hunkHeaderBackground)
+        }
+    }
+}
+
 // MARK: - Unified Diff
 
 struct UnifiedDiffContent: View {
     let file: FileDiff
 
     var body: some View {
+        let rows = unifiedRows(for: file)
         GeometryReader { geo in
             ScrollView([.horizontal, .vertical]) {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(file.hunks.enumerated()), id: \.offset) { index, hunk in
-                        if index > 0 {
-                            Rectangle()
-                                .fill(Color.primary.opacity(0.08))
-                                .frame(height: 1)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 2)
+                    ForEach(rows) { row in
+                        switch row {
+                        case .hunkHeader(let index, let text):
+                            HunkHeaderRow(text: text, showDivider: index > 0)
+                        case .line(let line):
+                            DiffLineView(line: line)
                         }
-                        HunkView(hunk: hunk)
                     }
                     Spacer(minLength: 0)
                 }
@@ -99,60 +177,33 @@ struct SideBySideDiffContent: View {
     let file: FileDiff
 
     var body: some View {
+        let rows = sideBySideRows(for: file)
         GeometryReader { geo in
             ScrollView(.vertical) {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(file.hunks.enumerated()), id: \.offset) { index, hunk in
-                        if index > 0 {
-                            Rectangle()
-                                .fill(Color.primary.opacity(0.08))
-                                .frame(height: 1)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 2)
+                    ForEach(rows) { row in
+                        switch row {
+                        case .hunkHeader(let index, let text):
+                            HunkHeaderRow(text: text, showDivider: index > 0)
+                        case .pair(_, let pair):
+                            HStack(spacing: 0) {
+                                // Left side (old)
+                                SideBySideLine(line: pair.left, side: .left)
+                                    .frame(width: geo.size.width / 2)
+
+                                Divider()
+
+                                // Right side (new)
+                                SideBySideLine(line: pair.right, side: .right)
+                                    .frame(width: geo.size.width / 2)
+                            }
                         }
-                        SideBySideHunkView(hunk: hunk, halfWidth: geo.size.width / 2)
                     }
                     Spacer(minLength: 0)
                 }
                 .frame(minHeight: geo.size.height, alignment: .topLeading)
             }
             .textSelection(.enabled)
-        }
-    }
-}
-
-struct SideBySideHunkView: View {
-    let hunk: Hunk
-    let halfWidth: CGFloat
-
-    var pairs: [SideBySidePair] {
-        SideBySidePairer.pair(lines: hunk.lines)
-    }
-
-    var body: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
-            // Hunk header spanning full width
-            Text(hunk.header)
-                .font(.system(size: 12, design: .monospaced))
-                .foregroundStyle(Theme.hunkHeaderText)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.hunkHeaderBackground)
-
-            ForEach(Array(pairs.enumerated()), id: \.offset) { _, pair in
-                HStack(spacing: 0) {
-                    // Left side (old)
-                    SideBySideLine(line: pair.left, side: .left)
-                        .frame(width: halfWidth)
-
-                    Divider()
-
-                    // Right side (new)
-                    SideBySideLine(line: pair.right, side: .right)
-                        .frame(width: halfWidth)
-                }
-            }
         }
     }
 }
@@ -234,27 +285,7 @@ struct SideBySideLine: View {
     }
 }
 
-// MARK: - Unified Diff Components (unchanged)
-
-struct HunkView: View {
-    let hunk: Hunk
-
-    var body: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
-            Text(hunk.header)
-                .font(.system(size: 12, design: .monospaced))
-                .foregroundStyle(Theme.hunkHeaderText)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.hunkHeaderBackground)
-
-            ForEach(hunk.lines) { line in
-                DiffLineView(line: line)
-            }
-        }
-    }
-}
+// MARK: - Unified Diff Components
 
 struct DiffLineView: View {
     let line: DiffLine
