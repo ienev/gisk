@@ -50,46 +50,25 @@ public actor GitCLI {
         if commitSHA == "WORKING" {
             return try await run(["diff", "--text", "HEAD"])
         }
+        let sha = try validatedRevision(commitSHA)
         if isRoot {
-            // Root commit: diff against empty tree
+            // Root commit: diff against empty tree. Trailing `--` guarantees the
+            // revision can't be reinterpreted as a pathspec.
             return try await run([
                 "diff-tree", "-p", "--text", "--no-commit-id", "--root", "-M", "-C",
-                commitSHA,
+                sha, "--",
             ])
         }
         if isMerge {
             // For merge commits, diff against first parent
             return try await run([
-                "diff", "--text", "-M", "-C", "\(commitSHA)~1", commitSHA,
+                "diff", "--text", "-M", "-C", "\(sha)~1", sha, "--",
             ])
         }
         return try await run([
             "diff-tree", "-p", "--text", "--no-commit-id", "-M", "-C",
-            "--diff-filter=ACDMRT", commitSHA,
+            "--diff-filter=ACDMRT", sha, "--",
         ])
-    }
-
-    public func diffStat(commitSHA: String) async throws -> String {
-        return try await run([
-            "diff-tree", "--no-commit-id", "-r", "--text", "--name-status", "-M", "-C",
-            commitSHA,
-        ])
-    }
-
-    public func show(commitSHA: String, file: String) async throws -> String {
-        return try await run(["show", "\(commitSHA):\(file)"])
-    }
-
-    public func branches() async throws -> String {
-        return try await run(["branch", "-a", "--no-color"])
-    }
-
-    public func tags() async throws -> String {
-        return try await run(["tag", "--list"])
-    }
-
-    public func revParse(_ arg: String) async throws -> String {
-        return try await run(["rev-parse", arg])
     }
 
     public func isGitRepo() async -> Bool {
@@ -103,13 +82,36 @@ public actor GitCLI {
 
     // MARK: - Private
 
+    /// Config overrides forced on every git invocation. Opening an untrusted
+    /// repository means git reads that repo's `.git/config`; keys like
+    /// `core.fsmonitor`/`core.hooksPath`/`core.pager` can otherwise make git
+    /// execute arbitrary programs during ordinary read commands. We neutralize
+    /// them here so viewing a hostile repo can't run its code.
+    private static let safeConfigArgs = [
+        "-c", "core.fsmonitor=",
+        "-c", "core.hooksPath=/dev/null",
+        "-c", "core.pager=cat",
+    ]
+
+    /// Validate that a string is a bare git object name (hex) before it is used
+    /// as a positional revision argument. Revisions originate from parsed
+    /// `%H`/`%h` log output, so anything non-hex (e.g. a leading `-` that git
+    /// would treat as an option) indicates corruption or tampering and is
+    /// rejected rather than passed through.
+    private func validatedRevision(_ sha: String) throws -> String {
+        guard !sha.isEmpty, sha.allSatisfy({ $0.isHexDigit }) else {
+            throw GitError.invalidArgument("Invalid commit revision: \(sha)")
+        }
+        return sha
+    }
+
     private func run(_ arguments: [String]) async throws -> String {
         let process = Process()
         let stdout = Pipe()
         let stderr = Pipe()
 
         process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        process.arguments = arguments
+        process.arguments = Self.safeConfigArgs + arguments
         process.currentDirectoryURL = URL(fileURLWithPath: repoPath)
         process.standardOutput = stdout
         process.standardError = stderr
@@ -155,6 +157,7 @@ public enum GitError: LocalizedError {
     case processLaunchFailed(Error)
     case notAGitRepository(path: String)
     case parseError(String)
+    case invalidArgument(String)
 
     public var errorDescription: String? {
         switch self {
@@ -166,6 +169,8 @@ public enum GitError: LocalizedError {
             return "Not a git repository: \(path)"
         case .parseError(let msg):
             return "Parse error: \(msg)"
+        case .invalidArgument(let msg):
+            return "Invalid argument: \(msg)"
         }
     }
 }
