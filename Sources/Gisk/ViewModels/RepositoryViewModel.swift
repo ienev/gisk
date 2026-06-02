@@ -96,6 +96,10 @@ class RepositoryViewModel {
 
     @MainActor
     func selectCommit(_ commit: Commit) async {
+        // Skip re-selecting the same commit: the redundant @Observable write
+        // would ripple back through the List selection binding and re-enter the
+        // NSTableView delegate.
+        guard commit.id != selectedCommit?.id else { return }
         selectedCommit = commit
 
         guard let git = git else {
@@ -127,6 +131,10 @@ class RepositoryViewModel {
     }
 
     func selectFile(_ file: FileDiff) {
+        // Skip no-op writes. @Observable notifies on every assignment, even to
+        // the same value; re-applying the current selection feeds back into the
+        // List's selection binding and re-enters the NSTableView delegate.
+        guard file.id != selectedFileDiff?.id else { return }
         selectedFileDiff = file
     }
 
