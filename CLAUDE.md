@@ -50,6 +50,8 @@ Tests/GiskTests/     -> 81 unit tests covering parsers, graph layout, and models
 - Graph layout is O(n * k) where k is max simultaneous branches. Layout is recomputed when loading more commits.
 - Commits load in pages of 500. Scrolling to the bottom triggers `loadMore()`.
 - The app registers as a regular GUI process via `NSApplication.setActivationPolicy(.regular)` in the AppDelegate — required for SPM-built SwiftUI apps to show windows.
+- The commit list and file list are built with `ScrollView` + `LazyVStack`, **not** SwiftUI `List`. `List` is backed by `NSTableView`, whose delegate emits a "reentrant operation in its NSTableView delegate" warning at launch when the data and selection change together. The stacks derive selection from the view model with manual highlighting (`Theme.selectedBackground`) and click-to-select; each pane is independently focusable with arrow-key navigation via `onMoveCommand`.
+- `make install` builds a `Gisk.app` bundle (with `Resources/Info.plist`) and symlinks `gisk` into it, so the process has a real bundle identifier even when launched via the symlink — without it AppKit's launch subsystems (intents, window tabbing) log "missing main bundle identifier" errors.
 - Diffs use `--text` flag to always show text content.
 - Merge commits diff against first parent (`git diff SHA~1 SHA`). Root commits use `--root`.
 - Virtual "Staged changes" and "Unstaged changes" entries appear at the top when working tree has modifications (`git status --porcelain` to detect, `git diff --cached` / `git diff` for content).
