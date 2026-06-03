@@ -5,16 +5,40 @@ struct CommitDetailView: View {
     let commit: Commit
     let onNavigate: (String) -> Void
 
+    @State private var showingMessagePopover = false
+
     var isVirtual: Bool {
         commit.id == "__STAGED__" || commit.id == "__UNSTAGED__"
+    }
+
+    /// Whether the commit carries a body beyond its subject worth expanding.
+    private var hasExpandableMessage: Bool {
+        !commit.body.isEmpty && commit.body != commit.subject
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Subject
-            Text(commit.subject)
-                .font(.system(size: 14, weight: .semibold))
-                .lineLimit(2)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(commit.subject)
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if hasExpandableMessage {
+                    Button {
+                        showingMessagePopover = true
+                    } label: {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 11))
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Show full message")
+                    .popover(isPresented: $showingMessagePopover, arrowEdge: .bottom) {
+                        messagePopover
+                    }
+                }
+            }
 
             if !isVirtual {
                 Divider()
@@ -78,7 +102,7 @@ struct CommitDetailView: View {
             }
 
             // Full body if present
-            if !commit.body.isEmpty && commit.body != commit.subject {
+            if hasExpandableMessage {
                 Divider()
                 ScrollView {
                     Text(commit.body)
@@ -89,5 +113,27 @@ struct CommitDetailView: View {
             }
         }
         .padding(12)
+    }
+
+    /// Floating, comfortably-sized view of the full commit message, for when the
+    /// detail pane is too short to read longer bodies inline.
+    private var messagePopover: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(commit.subject)
+                .font(.system(size: 14, weight: .semibold))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Divider()
+
+            ScrollView {
+                Text(commit.body)
+                    .font(.system(size: 12))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(14)
+        .frame(width: 460, height: 360)
     }
 }
