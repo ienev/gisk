@@ -35,7 +35,12 @@ public actor GitCLI {
     }
 
     public func diffUnstaged() async throws -> String {
-        return try await run(["diff", "--text"])
+        var output = try await run(["diff", "--text"])
+        let untracked = try await run(["ls-files", "--others", "--exclude-standard", "-z"])
+        for file in untracked.split(separator: "\0").map(String.init) {
+            output += try await run(["diff", "--no-index", "--text", "--", "/dev/null", file], allowFailure: true)
+        }
+        return output
     }
 
     public func diffStaged() async throws -> String {
@@ -105,7 +110,7 @@ public actor GitCLI {
         return sha
     }
 
-    private func run(_ arguments: [String]) async throws -> String {
+    private func run(_ arguments: [String], allowFailure: Bool = false) async throws -> String {
         let process = Process()
         let stdout = Pipe()
         let stderr = Pipe()
@@ -131,7 +136,7 @@ public actor GitCLI {
         let output = decodeLenient(outData)
         let errorOutput = decodeLenient(errData)
 
-        if process.terminationStatus != 0 {
+        if process.terminationStatus != 0 && !allowFailure {
             throw GitError.commandFailed(
                 command: "git \(arguments.joined(separator: " "))",
                 stderr: errorOutput,
