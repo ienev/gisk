@@ -79,7 +79,7 @@ struct ContentView: View {
 
                 // Bottom row: diff view + file list
                 HStack(spacing: 0) {
-                    DiffView(fileDiff: viewModel.selectedFileDiff)
+                    DiffView(fileDiff: viewModel.selectedFileDiff, repoPath: viewModel.repoPath)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     Divider()

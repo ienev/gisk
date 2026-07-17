@@ -15,7 +15,9 @@ enum DiffViewMode: String, CaseIterable {
 
 struct DiffView: View {
     let fileDiff: FileDiff?
+    let repoPath: String
     @State private var viewMode: DiffViewMode = .unified
+    @State private var pathHovering = false
 
     var body: some View {
         Group {
@@ -28,6 +30,16 @@ struct DiffView: View {
                             .foregroundStyle(Theme.fileStatusColor(file.status))
                         Text(file.displayPath)
                             .font(.system(size: 13, weight: .medium))
+                            .underline(pathHovering)
+                            .foregroundStyle(pathHovering ? Color.accentColor : Color.primary)
+                            .onHover { hovering in
+                                pathHovering = hovering
+                                if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                            }
+                            .onTapGesture {
+                                NSWorkspace.shared.open(URL(fileURLWithPath: repoPath).appendingPathComponent(file.newPath))
+                            }
+                            .help("Open in default editor")
 
                         Spacer()
 
