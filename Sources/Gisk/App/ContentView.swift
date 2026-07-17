@@ -27,6 +27,14 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
+                Button {
+                    Task { await viewModel.refresh() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .help("Refresh")
+                .keyboardShortcut("r", modifiers: .command)
+
                 SearchBar(text: $viewModel.searchText)
                     .frame(width: 250)
             }

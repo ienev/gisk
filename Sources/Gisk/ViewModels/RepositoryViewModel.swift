@@ -69,6 +69,36 @@ class RepositoryViewModel {
     }
 
     @MainActor
+    func refresh() async {
+        guard let git = git, !isLoading else { return }
+        isLoading = true
+
+        let selectedID = selectedCommit?.id
+        let selectedFileID = selectedFileDiff?.id
+
+        do {
+            let output = try await git.log(maxCount: max(pageSize, loadedCount), skip: 0)
+            var parsed = try GitLogParser.parse(output)
+            GraphLayoutEngine.computeLayout(commits: &parsed)
+            commits = await buildWorkingTreeEntries(cli: git) + parsed
+            loadedCount = parsed.count
+
+            let target = commits.first(where: { $0.id == selectedID }) ?? commits.first
+            selectedCommit = nil
+            if let target = target {
+                await selectCommit(target)
+                if let selectedFileID, let file = diff?.files.first(where: { $0.id == selectedFileID }) {
+                    selectFile(file)
+                }
+            }
+        } catch {
+            self.error = error.localizedDescription
+        }
+
+        isLoading = false
+    }
+
+    @MainActor
     func loadMore() async {
         guard let git = git, !isLoading else { return }
         isLoading = true
