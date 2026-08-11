@@ -160,6 +160,22 @@ class RepositoryViewModel {
         }
     }
 
+    var canStageSelection: Bool {
+        selectedCommit?.id == unstagedChangesID
+    }
+
+    @MainActor
+    func stageFile(_ file: FileDiff) async {
+        guard let git = git, canStageSelection else { return }
+        do {
+            try await git.stage(path: file.newPath)
+        } catch {
+            self.error = error.localizedDescription
+            return
+        }
+        await refresh()
+    }
+
     func selectFile(_ file: FileDiff) {
         // Skip no-op writes. @Observable notifies on every assignment, even to
         // the same value; re-applying the current selection feeds back into the

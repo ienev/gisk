@@ -49,6 +49,9 @@ struct ContentView: View {
     var mainContent: some View {
         GeometryReader { geo in
             let rightColumnWidth: CGFloat = 300
+            let onStage: ((FileDiff) -> Void)? = viewModel.canStageSelection
+                ? { file in Task { await viewModel.stageFile(file) } }
+                : nil
             VSplitView {
                 // Top row: commit list + commit detail
                 HStack(spacing: 0) {
@@ -79,7 +82,7 @@ struct ContentView: View {
 
                 // Bottom row: diff view + file list
                 HStack(spacing: 0) {
-                    DiffView(fileDiff: viewModel.selectedFileDiff, repoPath: viewModel.repoPath)
+                    DiffView(fileDiff: viewModel.selectedFileDiff, repoPath: viewModel.repoPath, onStage: onStage)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     Divider()
@@ -92,7 +95,8 @@ struct ContentView: View {
                                 set: { file in
                                     if let f = file { viewModel.selectFile(f) }
                                 }
-                            )
+                            ),
+                            onStage: onStage
                         )
                         .frame(width: rightColumnWidth)
                     }

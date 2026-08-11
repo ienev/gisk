@@ -51,6 +51,10 @@ public actor GitCLI {
         return try await run(["status", "--porcelain"])
     }
 
+    public func stage(path: String) async throws {
+        _ = try await run(["add", "--", path])
+    }
+
     public func diff(commitSHA: String, isMerge: Bool = false, isRoot: Bool = false) async throws -> String {
         if commitSHA == "WORKING" {
             return try await run(["diff", "--text", "HEAD"])

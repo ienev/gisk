@@ -4,6 +4,7 @@ import GiskLib
 struct FileListView: View {
     let files: [FileDiff]
     @Binding var selectedFile: FileDiff?
+    var onStage: ((FileDiff) -> Void)? = nil
     @FocusState private var isFocused: Bool
     // A row click targets an already-visible row, so suppress the auto-scroll
     // for that id (see CommitListView for the same pattern).
@@ -113,6 +114,17 @@ struct FileListView: View {
             }
 
             Spacer(minLength: 0)
+
+            if let onStage {
+                Button {
+                    onStage(file)
+                } label: {
+                    Image(systemName: "plus.circle")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.borderless)
+                .help("Stage file")
+            }
         }
         .help(file.newPath)
         .padding(EdgeInsets(top: 3, leading: 8, bottom: 3, trailing: 8))

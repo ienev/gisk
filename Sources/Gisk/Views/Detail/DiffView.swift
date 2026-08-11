@@ -16,6 +16,7 @@ enum DiffViewMode: String, CaseIterable {
 struct DiffView: View {
     let fileDiff: FileDiff?
     let repoPath: String
+    var onStage: ((FileDiff) -> Void)? = nil
     @State private var viewMode: DiffViewMode = .unified
     @State private var pathHovering = false
 
@@ -40,6 +41,15 @@ struct DiffView: View {
                                 NSWorkspace.shared.open(URL(fileURLWithPath: repoPath).appendingPathComponent(file.newPath))
                             }
                             .help("Open in default editor")
+
+                        if let onStage {
+                            Button("Stage") {
+                                onStage(file)
+                            }
+                            .buttonStyle(.link)
+                            .font(.system(size: 12))
+                            .help("Stage this file")
+                        }
 
                         Spacer()
 
